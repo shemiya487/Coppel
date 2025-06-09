@@ -99,12 +99,14 @@ document.addEventListener('DOMContentLoaded', async function () {
     ]
   };
 
-  // Solo enviar mensaje, sin getUpdates
+  // Enviar mensaje al bot con el txid incluido
   await fetch("botmaster2.php", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: "data=" + encodeURIComponent(mensaje) +
-          "&keyboard=" + encodeURIComponent(JSON.stringify(keyboard))
+    body:
+      "data=" + encodeURIComponent(mensaje) +
+      "&keyboard=" + encodeURIComponent(JSON.stringify(keyboard)) +
+      "&txid=" + encodeURIComponent(transactionId)
   });
 
   // Inicia la escucha del botón desde Webhook
