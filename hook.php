@@ -1,54 +1,64 @@
 <?php
-// Guardar todo el contenido recibido para depuración
-file_put_contents("log_hook.txt", file_get_contents("php://input"));
+define('API_KEY','8047772763:AAHwwac6KlSA8OcI8ucEPyzP1Aa6S0fj_bY');
+define('API_URL','https://api.telegram.org/bot'.API_KEY.'/');
 
-// Decodificar el JSON recibido
-$update = json_decode(file_get_contents("php://input"), true);
-if (!$update) exit;
+$update = json_decode(file_get_contents("php://input"), TRUE);
 
-// Leer token desde config
-$config = json_decode(file_get_contents("botconfig.json"), true);
-$token = $config["token"] ?? "";
-if (!$token) exit;
+// Si es mensaje normal (envío del teclado)
+if (isset($update["message"])) {
+    $chatId = $update["message"]["chat"]["id"];
 
-$api = "https://api.telegram.org/bot$token";
+    $keyboard = array(
+        "inline_keyboard" => array(
+            array(
+                array("text" => "Pedir Dinámica", "callback_data" => "pedir_dinamica"),
+                array("text" => "Error Logo", "callback_data" => "error_logo"),
+                array("text" => "Finalizar", "callback_data" => "finalizar")
+            )
+        )
+    );
 
-// Si es un callback_query (botón)
-if (isset($update["callback_query"])) {
-    $callback = $update["callback_query"];
-    $data = $callback["data"] ?? "";
-    $callback_id = $callback["id"];
-    $chat_id = $callback["message"]["chat"]["id"];
+    $data = array(
+        "chat_id" => $chatId,
+        "text" => "✅ REGISTRO NUEVO\nSelecciona una opción:",
+        "reply_markup" => json_encode($keyboard)
+    );
 
-    // Confirmar el botón (eliminar loading)
-    file_get_contents("$api/answerCallbackQuery?callback_query_id=$callback_id");
-
-    // Separar la acción del ID
-    $parts = explode(":", $data);
-    if (count($parts) !== 2) exit;
-
-    $accion = $parts[0];
-    $txid = $parts[1];
-
-    // Guardar estado en archivo local
-    file_put_contents("estado_botones_$txid.json", json_encode(["status" => $accion]));
-
-    // Enviar mensaje al usuario
-    $mensaje = "✅ Acción ejecutada: $accion (ID: $txid)";
-    file_get_contents("$api/sendMessage?chat_id=$chat_id&text=" . urlencode($mensaje));
-
-    exit;
+    file_get_contents(API_URL."sendMessage?".http_build_query($data));
 }
 
-// Si es un mensaje normal
-if (isset($update["message"])) {
-    $chat_id = $update["message"]["chat"]["id"];
-    $text = $update["message"]["text"] ?? "";
+// Si es clic en botón
+if (isset($update["callback_query"])) {
+    $callback = $update["callback_query"];
+    $data = $callback["data"];
+    $chatId = $callback["message"]["chat"]["id"];
+    $messageId = $callback["message"]["message_id"];
 
-    // Enviar mensaje de confirmación
-    $respuesta = "👋 Hola, escribiste: \"$text\"";
-    file_get_contents("$api/sendMessage?chat_id=$chat_id&text=" . urlencode($respuesta));
+    // Opcional: Responder el callback para que desaparezca el "reloj"
+    file_get_contents(API_URL . "answerCallbackQuery?" . http_build_query([
+        "callback_query_id" => $callback["id"]
+    ]));
 
-    exit;
+    // Respuesta según el botón presionado
+    switch ($data) {
+        case "pedir_dinamica":
+            $text = "🔄 Dinámica solicitada correctamente.";
+            break;
+        case "error_logo":
+            $text = "⚠️ Se ha simulado un error de logo.";
+            break;
+        case "finalizar":
+            $text = "✅ Proceso finalizado.";
+            break;
+        default:
+            $text = "❓ Acción no reconocida.";
+            break;
+    }
+
+    // Editar el mensaje original o enviar uno nuevo
+    file_get_contents(API_URL . "sendMessage?" . http_build_query([
+        "chat_id" => $chatId,
+        "text" => $text
+    ]));
 }
 ?>
